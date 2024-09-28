@@ -1,0 +1,54 @@
+.toast {
+    border-radius: 5px;
+    max-width: 80vw;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #1a237e; /* Nuevo color de fondo: Azul oscuro */
+    color: #f5f5f5; /* Nuevo color de texto: Blanco suave */
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    font-size: 90%;
+    z-index: 5100;
+
+    /* Animación */
+    transform: translateY(calc(100% + 10px));
+    transition: transform 0.2s ease-in-out;
+}
+.toast.inview {
+    transform: translateY(0);
+}
+
+.text {
+    padding: 20px;
+    flex-basis: 100%;
+    margin-right: 10px;
+}
+
+button {
+    padding: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    color: inherit;
+}
+
+.buttons {
+    display: flex;
+}
+
+.toast.warning {
+    background-color: #ffb300; /* Nuevo color de advertencia: Amarillo intenso */
+    color: #1a237e; /* Nuevo color de texto para advertencia: Azul oscuro */
+}
+
+.toast.error {
+    background-color: #d32f2f; /* Nuevo color de error: Rojo oscuro */
+    color: #f5f5f5; /* Nuevo color de texto para error: Blanco suave */
+}
+
+.toast.success {
+    background-color: #388e3c; /* Nuevo color de éxito: Verde intenso */
+    color: #f5f5f5; /* Nuevo color de texto para éxito: Blanco suave */
+}

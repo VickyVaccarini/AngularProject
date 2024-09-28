@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "karma-junit-reporter": "^2.0.1"
+  },
+  "dependencies": {
+    "@angular/animations": "^18.2.4",
+    "ngx-toastr": "^19.0.0"
+  }
+}
