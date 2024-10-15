@@ -1,288 +1,310 @@
 trigger:
-  - main
-
+  branches:
+    include:
+    - main
 pool:
   vmImage: 'windows-latest'
-
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
-  buildConfiguration: 'Release'
-  frontPath: './EmployeeCrudAngular/EmployeeCrudAngular/EmployeeCrudAngular'
-  backPath: './EmployeeCrudApi'
-  ConnectedServiceName: 'Azure subscription 1'
-  acrLoginServer: 'vvingsoft3uccacr.azurecr.io'
-  backImageName: 'miwebapp1'
+- name: configuration
+  value: 'Release'
+- name: buildOutput
+  value: '$(Build.ArtifactStagingDirectory)'
+- name: solution
+  value: '**/*.sln'
+- name: buildPlatform
+  value: 'Any CPU'
+- name: frontPath
+  value: './EmployeeCrudAngular/EmployeeCrudAngular/EmployeeCrudAngular'
+- name: backPath
+  value: './EmployeeCrudApi'
+- name: nodeVersion
+  value: '18.x'
+- name: ConnectedServiceName
+  value: 'Azure Subscription 1'
+- name: acrLoginServer
+  value: 'vvingsoft3uccacr.azurecr.io'
+- name: backImageName
+  value: 'miwebapp'
+- name: frontImageName
+  value: 'miwebapp-prod'
+- name: projectPath
+  value: 'EmployeeCrudAngular'
+- name: ResourceGroupName
+  value: 'TPINGSW'
+- name: backContainerInstanceNameQA
+  value: 'vicky-container-back'
+- name: backImageTag
+  value: 'latest'
+- name: container-cpu-api-qa
+  value: 1
+- name: container-memory-api-qa
+  value: 1.5
+- name: acrName
+  value: 'VVIngSoft3UCCACR'
+- name: frontContainerInstanceNameQA
+  value: 'vicky-container-front'
+- name: frontImageTag
+  value: 'latest'
+- name: container-cpu-front-qa
+  value: 1
+- name: container-memory-front-qa
+  value: 1.5
 
 stages:
-  - stage: BuildAndTest
-    displayName: "Build and Test API and Front"
-    jobs:
-      - job: BuildDotnet
-        displayName: "Build and Test API"
-        pool:
-          vmImage: 'windows-latest'
-        steps:
-          - checkout: self
-            fetchDepth: 0
-
-          - task: DotNetCoreCLI@2
-            displayName: 'Restaurar paquetes NuGet'
-            inputs:
-              command: restore
-              projects: '$(solution)'
-
-          - task: DotNetCoreCLI@2
-            displayName: 'Ejecutar pruebas de la API'
-            inputs:
-              command: 'test'
-              projects: '**/*.Tests.csproj'
-              arguments: '--collect:"XPlat Code Coverage"'
-
-          - task: PublishCodeCoverageResults@2
-            displayName: 'Publicar resultados de code coverage del back-end'
-            inputs:
-              summaryFileLocation: '$(Agent.TempDirectory)/**/*.cobertura.xml'
-              failIfCoverageEmpty: false
-
-          - task: SonarCloudPrepare@2
-            inputs:
-              SonarCloud: 'SonarCloud'
-              organization: 'viickyvaccarini2'
-              scannerMode: 'MSBuild'
-              projectKey: 'ViickyVaccarini2_Angular_WebAPINetCore8_CRUD_Sample_Backend'
-              projectName: 'Angular_WebAPINetCore8_CRUD_Sample_Backend'
-              extraProperties:
-                sonar.tests = EmployeeCrudApi.Tests/
-                sonar.sources = $(backPath)
-
-          - task: DotNetCoreCLI@2
-            displayName: 'Compilar la API'
-            inputs:
-              command: build
-              projects: '$(solution)'
-              arguments: '--configuration $(buildConfiguration)'
-
-          - task: DotNetCoreCLI@2
-            displayName: 'Publicar aplicación'
-            inputs:
-              command: publish
-              publishWebProjects: True
-              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-              zipAfterPublish: true
-
-          - task: SonarCloudAnalyze@2
-            inputs:
-              jdkversion: 'JAVA_HOME_17_X64'
-
-          - task: SonarCloudPublish@2
-            inputs:
-              pollingTimeoutSec: '300'
-
-          - task: PublishBuildArtifacts@1
-            displayName: 'Publicar artefactos de compilación'
-            inputs:
-              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-              ArtifactName: 'dotnet-drop'
-              publishLocation: 'Container'
-
-          # Publicar Dockerfile de Back
-          - task: PublishBuildArtifacts@1
-            displayName: 'Publicar Dockerfile de Back'
-            inputs:
-              targetPath: '$(Build.SourcesDirectory)/docker/api/dockerfile'
-              ArtifactName: 'dockerfile-back'
-
-      - job: BuildAngular
-        displayName: "Build and Test Angular"
-        pool:
-          vmImage: 'windows-latest'
-        steps:
-          - checkout: self
-            fetchDepth: 0
-
-          - task: NodeTool@0
-            displayName: 'Instalar Node.js'
-            inputs:
-              versionSpec: '22.x'
-
-          - script: npm install
-            displayName: 'Instalar dependencias'
-            workingDirectory: '$(frontPath)'
-
-          - script: npx ng test --karma-config=karma.conf.js --watch=false --browsers ChromeHeadless --code-coverage
-            displayName: 'Ejecutar pruebas del front'
-            workingDirectory: '$(frontPath)'
-            continueOnError: true  
-
-          - task: PublishCodeCoverageResults@2
-            displayName: 'Publicar resultados de code coverage del front'
-            inputs:
-              summaryFileLocation: '$(frontPath)/coverage/lcov.info'
-              failIfCoverageEmpty: false
-            condition: always()
-
-          - task: PublishTestResults@2
-            displayName: 'Publicar resultados de pruebas unitarias del front'
-            inputs:
-              testResultsFormat: 'JUnit'
-              testResultsFiles: '$(frontPath)/test-results/test-results.xml'
-              failTaskOnFailedTests: true
-            condition: always()
-
-          - task: SonarCloudPrepare@2
-            inputs:
-              SonarCloud: 'SonarCloud'
-              organization: 'viickyvaccarini2'
-              scannerMode: 'CLI'
-              configMode: 'manual'
-              cliProjectKey: 'ViickyVaccarini2_Angular_WebAPINetCore8_CRUD_Sample_Frontend'
-              cliProjectName: 'Angular_WebAPINetCore8_CRUD_Sample_Frontend'
-              cliSources: '$(frontPath)/src'
-
-          - script: npm run build
-            displayName: 'Compilar el proyecto Angular'
-            workingDirectory: '$(frontPath)'
-
-          - task: SonarCloudAnalyze@2
-            inputs:
-              jdkversion: 'JAVA_HOME_17_X64'
-
-          - task: SonarCloudPublish@2
-            inputs:
-              pollingTimeoutSec: '300'
-
-          - task: PublishBuildArtifacts@1
-            displayName: 'Publicar artefactos Angular'
-            inputs:
-              PathtoPublish: '$(frontPath)/dist'
-              ArtifactName: 'angular-drop'
-
-          # Publicar Dockerfile de Front
-          - task: PublishBuildArtifacts@1
-            displayName: 'Publicar Dockerfile de Front'
-            inputs:
-              targetPath: '$(Build.SourcesDirectory)/docker/front/dockerfile'
-              ArtifactName: 'dockerfile-front'
-
-  - stage: Deploy
-    displayName: 'Deploy API to QA'
-    dependsOn: BuildAndTest
-    condition: succeeded()
+- stage: BuildAndTest
+  displayName: "Construir y Probar API y Front"
+  jobs:
+  - job: BuildDotnet
+    displayName: "Construir y Probar API"
     pool:
       vmImage: 'windows-latest'
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: 'Restaurar paquetes NuGet'
+      inputs:
+        command: restore
+        projects: '$(solution)'
+    - task: DotNetCoreCLI@2
+      displayName: 'Build de Back'
+      inputs:
+        command: 'build'
+        projects: 'EmployeeCrudApi/EmployeeCrudApi/EmployeeCrudApi.csproj'
+        arguments: '--configuration $(buildConfiguration) --output $(buildOutput)/api  --self-contained false'
+    - task: DotNetCoreCLI@2
+      displayName: 'Publicar Back-End'
+      inputs:
+        command: publish
+        publishWebProjects: true
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: false
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publicar Artefactos de Back'
+      inputs:
+        pathtoPublish: '$(buildOutput)'
+        artifactName: 'drop-back'
+        publishLocation: 'Container'
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publicar Dockerfile de Back'
+      inputs:
+        targetPath: '$(Build.SourcesDirectory)/docker/api/dockerfile'
+        artifact: 'dockerfile-back'
+  - job: Frontend
+    displayName: 'Build y Análisis del Front-End'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+      displayName: 'Instalar Node.js'
+    - task: Cache@2
+      inputs:
+        key: 'npm | "$(Agent.OS)" | EmployeeCrudAngular/package-lock.json'
+        path: 'EmployeeCrudAngular/EmployeeCrudAngular/EmployeeCrudAngular/node_modules'
+        restoreKeys: |
+          npm | "$(Agent.OS)"
+      displayName: 'Cachear dependencias de npm'
+    - task: CmdLine@2
+      displayName: 'Instalar Dependencias de Front'
+      inputs:
+        script: npm install
+        workingDirectory: '$(frontPath)'
+    - task: CmdLine@2
+      displayName: 'Build de Front'
+      condition: succeeded()
+      inputs:
+        script: npx ng build --configuration production
+        workingDirectory: '$(frontPath)'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publicar Artefactos de Front'
+      inputs:
+        pathtoPublish: '$(frontPath)/dist/employee-crud-angular/browser'
+        artifactName: 'drop-front'
+        publishLocation: 'Container'
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publicar Dockerfile de Front'
+      inputs:
+        targetPath: '$(Build.SourcesDirectory)/docker/front/dockerfile'
+        artifact: 'dockerfile-front'
 
-    jobs:
-      - job: DeployBack
-        displayName: 'Deploy Backend'
-        steps:
-          - task: DownloadBuildArtifacts@1
-            inputs:
-              buildType: 'current'
-              downloadType: 'single'
-              artifactName: 'dotnet-drop'
-              downloadPath: '$(System.ArtifactsDirectory)'
+- stage: DockerBuildAndPush
+  displayName: 'Construir y Subir Imágenes Docker a ACR'
+  dependsOn:
 
-          - task: AzureRmWebAppDeployment@4
-            inputs:
-              azureSubscription: 'Azure subscription 1'
-              appType: 'webApp'
-              WebAppName: 'MiWebApp1'
-              package: '$(System.ArtifactsDirectory)/dotnet-drop/**/*.zip'
+  - BuildAndTest
+  jobs:
+  - job: docker_build_and_push
+    displayName: 'Construir y Subir Imágenes Docker de Back a ACR'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Descargar Artefactos de Back'
+      inputs:
+        buildType: 'current'
+        artifactName: 'drop-back'
+        targetPath: '$(Pipeline.Workspace)/drop-back'
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Descargar Dockerfile de Back'
+      inputs:
+        buildType: 'current'
+        artifactName: 'dockerfile-back'
+        targetPath: '$(Pipeline.Workspace)/dockerfile-back'
+    - task: AzureCLI@2
+      displayName: 'Iniciar Sesión en Azure Container Registry (ACR)'
+      inputs:
+        azureSubscription: '$(ConnectedServiceName)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az acr login --name $(acrLoginServer)
+    - task: Docker@2
+      displayName: 'Construir Imagen Docker para Back'
+      inputs:
+        command: build
+        repository: $(acrLoginServer)/$(backImageName)
+        dockerfile: $(Pipeline.Workspace)/dockerfile-back/dockerfile
+        buildContext: $(Pipeline.Workspace)/drop-back
+        tags: 'latest'
+    - task: Docker@2
+      displayName: 'Subir Imagen Docker de Back a ACR'
+      inputs:
+        command: push
+        repository: $(acrLoginServer)/$(backImageName)
+        tags: 'latest'
 
-      - job: DeployFront
-        displayName: 'Deploy Front-End to QA'
-        steps:
-          - task: DownloadBuildArtifacts@1
-            inputs:
-              buildType: 'current'
-              downloadType: 'single'
-              artifactName: 'angular-drop'
-              downloadPath: '$(System.ArtifactsDirectory)'
+  - job: docker_build_and_push_front
+    displayName: 'Construir y Subir Imágenes Docker de Front a ACR'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Descargar Artefactos de Front'
+      inputs:
+        buildType: 'current'
+        artifactName: 'drop-front'
+        targetPath: '$(Pipeline.Workspace)/drop-front'
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Descargar Dockerfile de Front'
+      inputs:
+        buildType: 'current'
+        artifactName: 'dockerfile-front'
+        targetPath: '$(Pipeline.Workspace)/dockerfile-front'
+    - task: AzureCLI@2
+      displayName: 'Iniciar Sesión en Azure Container Registry (ACR)'
+      inputs:
+        azureSubscription: '$(ConnectedServiceName)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az acr login --name $(acrLoginServer)
+    - task: Docker@2
+      displayName: 'Construir Imagen Docker para Front'
+      inputs:
+        command: build
+        repository: $(acrLoginServer)/$(frontImageName)
+        dockerfile: $(Pipeline.Workspace)/dockerfile-front/dockerfile
+        buildContext: $(Pipeline.Workspace)/drop-front
+        tags: 'latest'
+    - task: Docker@2
+      displayName: 'Subir Imagen Docker de Front a ACR'
+      inputs:
+        command: push
+        repository: $(acrLoginServer)/$(frontImageName)
+        tags: 'latest'
 
-          - task: AzureRmWebAppDeployment@4
-            inputs:
-              azureSubscription: 'Azure subscription 1'
-              appType: 'webApp'
-              WebAppName: 'MiWebApp1-PROD'
-              package: '$(System.ArtifactsDirectory)/angular-drop/employee-crud-angular/browser'
+# Desplegar en Azure Container Instances (ACI) QA
+- stage: DeployToACIQA
+  displayName: 'Desplegar en Azure Container Instances (ACI) QA'
+  dependsOn:
+  - DockerBuildAndPush
+  jobs:
+  - job: deploy_to_aci_qa
+    displayName: 'Desplegar en Azure Container Instances (ACI) QA'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Desplegar Imagen Docker de Back en ACI QA'
+      inputs:
+        azureSubscription: '$(ConnectedServiceName)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Resource Group: $(ResourceGroupName)"
+          echo "Container Instance Name: $(backContainerInstanceNameQA)"
+          echo "ACR Login Server: $(acrLoginServer)"
+          echo "Image Name: $(backImageName)"
+          echo "Image Tag: $(backImageTag)"
+          echo "Connection String: $(cnn-string-qa)"
 
-      - job: RunCypressTests
-        displayName: 'Run Cypress Tests'
-        dependsOn: [DeployFront, DeployBack]
-        condition: succeeded()
-        steps:
-          - script: npm install ts-node typescript mocha-junit-reporter --save-dev
-            displayName: 'Install typescript and mocha-junit-reporter'
-            workingDirectory: '$(frontPath)'
+          az container delete --resource-group $(ResourceGroupName) --name $(backContainerInstanceNameQA) --yes
 
-          - script: npx cypress run
-            workingDirectory: '$(frontPath)'
-            displayName: 'Run integration tests'
-            continueOnError: true
+          az container create --resource-group $(ResourceGroupName) \
+            --name $(backContainerInstanceNameQA) \
+            --image $(acrLoginServer)/$(backImageName):$(backImageTag) \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username $(acrName) \
+            --registry-password $(az acr credential show --name $(acrName) --query "passwords[0].value" -o tsv) \
+            --dns-name-label $(backContainerInstanceNameQA) \
+            --ports 80 \
+            --environment-variables ConnectionStrings__DefaultConnection="$(cnn-string-qa)" \
+            --restart-policy Always \
+            --cpu $(container-cpu-api-qa) \
+            --memory $(container-memory-api-qa)
+  
+    - task: AzureCLI@2
+      displayName: 'Desplegar Imagen Docker de Front en ACI QA'
+      inputs:
+        azureSubscription: '$(ConnectedServiceName)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "Resource Group: $(ResourceGroupName)"
+          echo "Container Instance Name: $(frontContainerInstanceNameQA)"
+          echo "ACR Login Server: $(acrLoginServer)"
+          echo "Image Name: $(frontImageName)"
+          echo "Image Tag: $(frontImageTag)"
+          echo "Api Url: $(api_url)"
 
-          - task: PublishTestResults@2
-            inputs:
-              testResultsFormat: 'JUnit'
-              testResultsFiles: 'cypress/results/results-*.xml' 
-              searchFolder: '$(frontPath)' 
-              testRunTitle: 'Cypress Integration Tests'
+          az container delete --resource-group $(ResourceGroupName) --name $(frontContainerInstanceNameQA) --yes
 
-  # #----------------------------------------------------------
-  # ### STAGE BUILD DOCKER IMAGES Y PUSH A AZURE CONTAINER REGISTRY
-  # #----------------------------------------------------------
+          az container create --resource-group $(ResourceGroupName) \
+            --name $(frontContainerInstanceNameQA) \
+            --image $(acrLoginServer)/$(frontImageName):$(frontImageTag) \
+            --registry-login-server $(acrLoginServer) \
+            --registry-username $(acrName) \
+            --registry-password $(az acr credential show --name $(acrName) --query "passwords[0].value" -o tsv) \
+            --dns-name-label $(frontContainerInstanceNameQA) \
+            --ports 80 \
+            --environment-variables api_url="$(api_url)" \
+            --restart-policy Always \
+            --cpu $(container-cpu-front-qa) \
+            --memory $(container-memory-front-qa)
 
-  - stage: DockerBuildAndPush
-    displayName: 'Construir y Subir Imágenes Docker a ACR'
-    dependsOn: BuildAndTest
-    jobs:
-      - job: docker_build_and_push
-        displayName: 'Construir y Subir Imágenes Docker a ACR'
-        pool:
-          vmImage: 'ubuntu-latest'
+  - job: IntegrationTesting
+    displayName: 'Cypress'
+    dependsOn: deploy_to_aci_qa
+    variables:
+      - name: baseUrl
+        value: '$(frontContainerInstanceNameQA).eastus.azurecontainer.io'
 
-        steps:
-          - checkout: self
+    steps:
+      - script: |
+          cd $(Build.SourcesDirectory)/EmployeeCrudAngular
+          npm install typescript ts-node
+        displayName: 'Install TypeScript'
 
-          #----------------------------------------------------------
-          # BUILD DOCKER BACK IMAGE Y PUSH A AZURE CONTAINER REGISTRY
-          #----------------------------------------------------------
+      # Crear la carpeta results si no existe
+      - script: |
+          mkdir $(Build.SourcesDirectory)\EmployeeCrudAngular\EmployeeCrudAngular\EmployeeCrudAngular\cypress\results
+        displayName: 'Create Results Directory'
 
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Descargar Artefactos de Back'
-            inputs:
-              buildType: 'current'
-              artifactName: 'dotnet-drop'
-              targetPath: '$(Pipeline.Workspace)/dotnet-drop'
-          
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Descargar Dockerfile de Back'
-            inputs:
-              buildType: 'current'
-              artifactName: 'dockerfile-back'
-              targetPath: '$(Pipeline.Workspace)/dockerfile-back'
+      - script: |
+          cd $(Build.SourcesDirectory)/EmployeeCrudAngular/EmployeeCrudAngular/EmployeeCrudAngular
+          npx cypress run --config-file cypress.config.ts --env baseUrl=$(baseUrl)
+        displayName: 'Run Cypress E2E Tests'
 
-          - task: AzureCLI@2
-            displayName: 'Iniciar Sesión en Azure Container Registry (ACR)'
-            inputs:
-              azureSubscription: '$(ConnectedServiceName)'
-              scriptType: bash
-              scriptLocation: inlineScript
-              inlineScript: |
-                az acr login --name $(acrLoginServer)
-
-          - task: Docker@2
-            displayName: 'Construir Imagen Docker para Back'
-            inputs:
-              command: build
-              repository: '$(acrLoginServer)/$(backImageName)'
-              dockerfile: '$(Pipeline.Workspace)/dockerfile-back/dockerfile'
-              buildContext: '$(Pipeline.Workspace)/dotnet-drop'
-              tags: 'latest'
-
-          - task: Docker@2
-            displayName: 'Subir Imagen Docker de Back a ACR'
-            inputs:
-              command: push
-              repository: '$(acrLoginServer)/$(backImageName)'
-              tags: 'latest'
+      - task: PublishTestResults@2
+        inputs:
+          testResultsFiles: '$(Build.SourcesDirectory)/EmployeeCrudAngular/EmployeeCrudAngular/EmployeeCrudAngular/cypress/results/*.xml'
+          testRunTitle: 'Cypress E2E Tests (QA)'
+        displayName: 'Publish Cypress Test Results'

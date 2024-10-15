@@ -5,23 +5,24 @@ module.exports = function (config) {
       require('karma-jasmine'),
       require('karma-chrome-launcher'),
       require('karma-junit-reporter'),
-      require('karma-coverage'),  // Asegúrate de agregar esto
+      require('karma-coverage'),
       require('@angular-devkit/build-angular/plugins/karma')
     ],
-    reporters: ['progress', 'junit', 'coverage'],  // Agregar 'coverage' aquí
+    reporters: ['progress', 'junit', 'coverage'],
     junitReporter: {
       outputDir: 'test-results',
       outputFile: 'test-results.xml',
       useBrowserName: false
     },
     coverageReporter: {
-      dir: require('path').join(__dirname, './coverage/'), // Especificar el directorio para la cobertura
+      type: 'lcov',
+      dir: require('path').join(__dirname, './coverage'),
       subdir: '.',
-      reporters: [
-        { type: 'html' },      // Generar un informe HTML
-        { type: 'lcov' },      // Generar un informe LCOV
-        { type: 'text-summary' } // Resumen en texto en la consola
-      ],
+      file: 'lcov.info'
+    },
+    preprocessors: {
+      // Añade los archivos que deseas instrumentar para la cobertura
+      'src/**/*.ts': ['coverage'], // Asegúrate de instrumentar los archivos de tu aplicación
     },
     port: 9876,
     colors: true,

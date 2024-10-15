@@ -1,4 +1,6 @@
 export const environment = {
-  production: true,
-  apiUrl: 'http://localhost:7150/api/Employee'  // URL de la API para prod
+    production: true,
+    apiUrl: (typeof window !== 'undefined' && window.env && window.env.apiUrl) 
+        ? window.env.apiUrl 
+        : 'http://vicky-container-back.brazilsouth.azurecontainer.io/api/employee'
 };
